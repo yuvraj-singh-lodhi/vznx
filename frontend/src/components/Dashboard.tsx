@@ -1,6 +1,6 @@
 // src/components/Dashboard.tsx
 import React, { useState, useMemo, useCallback, useEffect } from "react";
-import type { Project, Task, ProjectStatus } from "../types";
+import type { Project, Task, ProjectStatus, TeamMember } from "../types";
 import ProjectList from "./ProjectList/ProjectList";
 import TeamOverview from "./TeamOverview/TeamOverview";
 import ProjectDetailsModal from "./ProjectList/ProjectDetailsModal";
@@ -13,15 +13,11 @@ const TEAM_CAPACITY = 5;
 const Dashboard: React.FC = () => {
   const [projects, setProjects] = useState<Project[]>([]);
   const [teamMembers, setTeamMembers] = useState<string[]>([]);
+  const [teamMembersFull, setTeamMembersFull] = useState<TeamMember[]>([]);
   const [newProjectName, setNewProjectName] = useState("");
 
-  const [progressUpdate, setProgressUpdate] = useState<{
-    [key: number]: number;
-  }>({});
-
-  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
-    null
-  );
+  const [progressUpdate, setProgressUpdate] = useState<Record<number, number>>({});
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
 
   const newProjectInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -37,6 +33,7 @@ const Dashboard: React.FC = () => {
   const refreshTeamMembers = useCallback(async () => {
     try {
       const members = await api.getTeamMembers();
+      setTeamMembersFull(members);
       setTeamMembers(members.map((m) => m.name));
     } catch (err) {
       console.error("Failed to load team members", err);
@@ -48,7 +45,7 @@ const Dashboard: React.FC = () => {
     refreshTeamMembers();
   }, [refreshProjects, refreshTeamMembers]);
 
-  const calculateProjectProgress = useCallback((tasks: Task[]) => {
+  const calculateProjectProgress = useCallback((tasks: Task[] | undefined) => {
     if (!tasks || tasks.length === 0) return 0;
     const completed = tasks.filter((t) => t.isComplete).length;
     return Math.round((completed / tasks.length) * 100);
@@ -62,49 +59,42 @@ const Dashboard: React.FC = () => {
       const finalProgress =
         manualProgress !== undefined
           ? manualProgress
-          : project.progress || calculatedProgress;
-      let status: ProjectStatus = project.status;
+          : project.progress ?? calculatedProgress;
+
       let statusNormalized: ProjectStatus;
-
-      if (finalProgress === 100) {
-        statusNormalized = "COMPLETED";
-      } else if (finalProgress > 0) {
-        statusNormalized = "IN_PROGRESS";
-      } else {
-        statusNormalized = "PENDING";
-      }
-
-      status = statusNormalized;
+      if (finalProgress === 100) statusNormalized = "COMPLETED";
+      else if (finalProgress > 0) statusNormalized = "IN_PROGRESS";
+      else statusNormalized = "PENDING";
 
       return {
         ...project,
         progress: finalProgress,
-        status,
+        status: statusNormalized,
       };
     });
   }, [projects, progressUpdate, calculateProjectProgress]);
 
-  const teamOverview = useMemo(() => {
-    const taskCounts: { [key: string]: number } = {};
-    teamMembers.forEach((name) => (taskCounts[name] = 0));
+  const teamOverviewMembers: TeamMember[] = useMemo(() => {
+    return teamMembersFull.map((member) => {
+      const tasksForMember: Task[] = [];
+      projects.forEach((p) =>
+        (p.tasks ?? []).forEach((t) => {
+          if (t.assignedTo && typeof t.assignedTo === "object" && t.assignedTo.id === member.id) {
+            tasksForMember.push(t);
+          }
+        })
+      );
 
-    projects.forEach((p) => {
-      (p.tasks ?? []).forEach((t) => {
-        const assignedName: string | undefined = t.assignedTo?.name;
-        if (!assignedName) return;
-        taskCounts[assignedName] = (taskCounts[assignedName] || 0) + 1;
-      });
+      return {
+        ...member,
+        tasks: tasksForMember,
+        capacity: member.capacity ?? TEAM_CAPACITY,
+      };
     });
+  }, [teamMembersFull, projects]);
 
-    return Object.entries(taskCounts).map(([name, count]) => ({
-      name,
-      assignedTasks: count,
-      capacity: TEAM_CAPACITY,
-    }));
-  }, [projects, teamMembers]);
-
-  const handleOpenProjectDetails = useCallback((projectId: number) => {
-    setSelectedProjectId(projectId);
+  const handleOpenProjectDetails = useCallback((id: number) => {
+    setSelectedProjectId(id);
   }, []);
 
   const handleCloseProjectDetails = useCallback(() => {
@@ -114,12 +104,11 @@ const Dashboard: React.FC = () => {
   const selectedProject = useMemo(() => {
     return projectsWithProgress.find((p) => p.id === selectedProjectId) || null;
   }, [selectedProjectId, projectsWithProgress]);
+
   const handleAddTask = useCallback(
     async (projectId: number, taskName: string, assignedTo: string) => {
       try {
-        await api.createTask(projectId, taskName, {
-          assignedToName: assignedTo,
-        });
+        await api.createTask(projectId, taskName, { assignedToName: assignedTo });
         await refreshProjects();
         await refreshTeamMembers();
       } catch (err) {
@@ -152,8 +141,6 @@ const Dashboard: React.FC = () => {
       console.error("Failed to create project", err);
     }
   }, [newProjectName, refreshProjects]);
-
-  const focusNewProjectInput = () => newProjectInputRef.current?.focus();
 
   const toggleTaskCompletion = useCallback(
     async (_projectId: number, taskId: number) => {
@@ -210,22 +197,19 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
-      <Navbar onAddProjectClick={focusNewProjectInput} />{" "}
+      <Navbar />
+
       <main className="p-6 md:p-10 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {" "}
         <section className="lg:col-span-2">
-          {" "}
           <header className="mb-8">
-            {" "}
             <h1 className="text-4xl font-extrabold text-slate-900">
               Project & Team Management Console
-            </h1>{" "}
+            </h1>
             <p className="text-slate-500 mt-2 text-lg">
-              Central hub for tracking progress, managing resources, and
-              initiating new workstreams. Select a project card to access
-              detailed task management.{" "}
-            </p>{" "}
-          </header>{" "}
+              Central hub for tracking progress, managing resources, and initiating new workstreams.
+            </p>
+          </header>
+
           <ProjectList
             projects={projectsWithProgress}
             allTeamMembers={teamMembers}
@@ -239,23 +223,23 @@ const Dashboard: React.FC = () => {
             progressUpdates={progressUpdate}
             newProjectInputRef={newProjectInputRef}
             onOpenProjectDetails={handleOpenProjectDetails}
-          />{" "}
-        </section>{" "}
+          />
+        </section>
+
         <aside>
-          {" "}
           <TeamOverview
-            team={teamOverview}
+            team={teamOverviewMembers}
             handleAddNewTeamMember={handleAddNewTeamMember}
-          />{" "}
-        </aside>{" "}
-      </main>{" "}
+          />
+        </aside>
+      </main>
+
       {selectedProject && (
         <Modal
           isOpen={!!selectedProject}
           onClose={handleCloseProjectDetails}
           title={`Project: ${selectedProject.name}`}
         >
-          {" "}
           <ProjectDetailsModal
             project={selectedProject}
             allTeamMembers={teamMembers}
@@ -263,9 +247,9 @@ const Dashboard: React.FC = () => {
             handleAddTask={handleAddTask}
             handleManualProgressUpdate={handleManualProgressUpdate}
             manualProgressValue={progressUpdate[selectedProject.id]}
-          />{" "}
+          />
         </Modal>
-      )}{" "}
+      )}
     </div>
   );
 };
