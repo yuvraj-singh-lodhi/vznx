@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+enum ProjectStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+model Project {
+  id        Int      @id @default(autoincrement())
+  name      String
+  status    ProjectStatus @default(PENDING)
+  progress  Int      @default(0)
+  tasks     Task[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Task {
+  id           Int        @id @default(autoincrement())
+  name         String
+  isComplete   Boolean    @default(false)
+  assignedTo   TeamMember? @relation(fields: [assignedToId], references: [id])
+  assignedToId Int?
+  project      Project    @relation(fields: [projectId], references: [id])
+  projectId    Int
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model TeamMember {
+  id        Int    @id @default(autoincrement())
+  name      String @unique
+  capacity  Int    @default(5)
+  tasks     Task[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
