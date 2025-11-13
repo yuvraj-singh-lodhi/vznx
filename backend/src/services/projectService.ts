@@ -1,7 +1,6 @@
 // src/services/projectService.ts
 import prisma from "../db/prisma";
-
-// Prisma enum is NOT exported, so we define the TS type ourselves.
+import type { Task } from "@prisma/client";
 export type ProjectStatus = "PENDING" | "IN_PROGRESS" | "COMPLETED";
 
 export async function listProjects() {
@@ -62,7 +61,7 @@ export async function recalcAndUpdateProjectProgress(projectId: number) {
   const tasks = await prisma.task.findMany({ where: { projectId } });
 
   const total = tasks.length;
-  const completed = tasks.filter((t) => t.isComplete).length;
+  const completed = tasks.filter((t: Task) => t.isComplete).length;
   const progress = total === 0 ? 0 : Math.round((completed / total) * 100);
 
   const status: ProjectStatus =
