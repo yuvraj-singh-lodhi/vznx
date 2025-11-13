@@ -2,11 +2,13 @@
 import React from 'react';
 import type { Task } from '../../types';
 import { motion } from 'framer-motion';
+import Loader from '../UI/Loader';
 
 interface TaskItemProps {
   task: Task;
   projectId: number;
   toggleTaskCompletion: (projectId: number, taskId: number) => void;
+  isActionLoading: boolean; 
 }
 
 const getAssigneeName = (assignedTo: string | { name?: string } | null | undefined) => {
@@ -16,23 +18,32 @@ const getAssigneeName = (assignedTo: string | { name?: string } | null | undefin
   return String(assignedTo);
 };
 
-const TaskItem: React.FC<TaskItemProps> = ({ task, projectId, toggleTaskCompletion }) => (
+const TaskItem: React.FC<TaskItemProps> = ({ task, projectId, toggleTaskCompletion, isActionLoading }) => (
   <motion.div
     layout
     initial={{ opacity: 0, x: -10 }}
     animate={{ opacity: 1, x: 0 }}
     exit={{ opacity: 0, x: 10 }}
     transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-    className="flex items-center justify-between p-3 border-b border-slate-100 last:border-b-0 hover:bg-sky-50 rounded-lg transition-colors duration-150"
+    className={`flex items-center justify-between p-3 border-b border-slate-100 last:border-b-0 rounded-lg transition-colors duration-150 ${
+        isActionLoading ? 'opacity-70 cursor-not-allowed' : 'hover:bg-sky-50'
+    }`}
   >
     <div className="flex items-center gap-3 flex-1 min-w-0">
       <button
         onClick={() => toggleTaskCompletion(projectId, task.id)}
-        className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 shrink-0 border-2 ${task.isComplete ? 'bg-emerald-500 border-emerald-500 text-white hover:bg-emerald-600' : 'border-slate-300 text-slate-600 hover:border-sky-400 hover:bg-white'}`}
+        disabled={isActionLoading}
+        className={`w-7 h-7 rounded-full flex items-center justify-center transition-all duration-300 shrink-0 border-2 ${
+            task.isComplete 
+                ? 'bg-emerald-500 border-emerald-500 text-white hover:bg-emerald-600' 
+                : 'border-slate-300 text-slate-600 hover:border-sky-400 hover:bg-white'
+        } ${isActionLoading ? 'cursor-not-allowed' : ''}`}
         aria-pressed={task.isComplete}
         aria-label={task.isComplete ? 'Mark task incomplete' : 'Mark task complete'}
       >
-        {task.isComplete ? (
+        {isActionLoading ? (
+            <Loader size={18} /> 
+        ) : task.isComplete ? (
           <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
         ) : (
           <svg className="w-4 h-4 opacity-40" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="9" strokeWidth={1.5} /></svg>

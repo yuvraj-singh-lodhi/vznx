@@ -2,6 +2,7 @@
 import React from 'react';
 import type { Project } from '../../types';
 import ProjectCard from './ProjectCard';
+import Loader from '../UI/Loader'; 
 
 interface ProjectListProps {
   projects: Project[];
@@ -15,7 +16,8 @@ interface ProjectListProps {
   setNewProjectName: (name: string) => void;
   progressUpdates: { [key: number]: number };
   newProjectInputRef: React.RefObject<HTMLInputElement | null>;
-  onOpenProjectDetails: (projectId: number) => void; // New prop
+  onOpenProjectDetails: (projectId: number) => void;
+  isActionLoading: boolean; 
 }
 
 const ProjectList: React.FC<ProjectListProps> = ({
@@ -26,7 +28,10 @@ const ProjectList: React.FC<ProjectListProps> = ({
   setNewProjectName,
   newProjectInputRef,
   onOpenProjectDetails,
+  isActionLoading, 
 }) => {
+  const isCreateDisabled = !newProjectName.trim() || isActionLoading;
+
   return (
     <section className="mb-10">
       <div className="bg-white rounded-2xl p-6 shadow-2xl border border-slate-100">
@@ -43,14 +48,20 @@ const ProjectList: React.FC<ProjectListProps> = ({
               placeholder="Enter new project name"
               value={newProjectName}
               onChange={(e) => setNewProjectName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleAddProject(); }}
-              className="p-2.5 border border-slate-300 rounded-lg w-full sm:w-64 focus:ring-2 focus:ring-sky-300 shadow-sm transition-all"
+              onKeyDown={(e) => { if (e.key === 'Enter' && !isCreateDisabled) handleAddProject(); }}
+              disabled={isActionLoading}
+              className="p-2.5 border border-slate-300 rounded-lg w-full sm:w-64 focus:ring-2 focus:ring-sky-300 shadow-sm transition-all disabled:bg-slate-100 disabled:cursor-not-allowed"
             />
             <button
               onClick={handleAddProject}
-              className="px-5 py-2.5 bg-sky-600 text-white rounded-lg font-semibold hover:bg-sky-700 shadow-lg transition-transform transform-gpu hover:-translate-y-0.5"
+              disabled={isCreateDisabled}
+              className="px-5 py-2.5 bg-sky-600 text-white rounded-lg font-semibold shadow-lg transition-transform transform-gpu hover:-translate-y-0.5 disabled:bg-slate-400 disabled:shadow-none w-full relative flex items-center justify-center"
             >
-              Create Project
+              {isActionLoading && !newProjectName.trim() ? (
+                <Loader size={20} />
+              ) : (
+                'Create Project'
+              )}
             </button>
           </div>
         </div>
@@ -61,7 +72,8 @@ const ProjectList: React.FC<ProjectListProps> = ({
               key={project.id}
               project={project}
               handleDeleteProject={handleDeleteProject}
-              onOpenDetails={onOpenProjectDetails} 
+              onOpenDetails={onOpenProjectDetails}
+              isActionLoading={isActionLoading} 
             />
           ))}
           {projects.length === 0 && (

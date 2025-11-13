@@ -2,17 +2,22 @@
 import React, { useState } from 'react';
 import type { TeamMember } from '../../types';
 import TeamMemberCard from './TeamMemberCard';
+import Loader from '../UI/Loader'; 
 
 interface TeamOverviewProps {
   team: TeamMember[];
   handleAddNewTeamMember: (name: string) => void;
+  isActionLoading: boolean;
 }
 
-const TeamOverview: React.FC<TeamOverviewProps> = ({ team, handleAddNewTeamMember }) => {
+const TeamOverview: React.FC<TeamOverviewProps> = ({ team, handleAddNewTeamMember, isActionLoading }) => {
   const [newMemberName, setNewMemberName] = useState('');
 
+  const isAddDisabled = !newMemberName.trim() || isActionLoading;
+
   const onAddMember = () => {
-    if (!newMemberName.trim()) return;
+    if (isAddDisabled) return;
+
     handleAddNewTeamMember(newMemberName.trim());
     setNewMemberName('');
   };
@@ -32,7 +37,7 @@ const TeamOverview: React.FC<TeamOverviewProps> = ({ team, handleAddNewTeamMembe
           />
         ))}
         {team.length === 0 && (
-            <p className="text-sm italic text-slate-500 py-2 text-center">No team members added yet.</p>
+          <p className="text-sm italic text-slate-500 py-2 text-center">No team members added yet.</p>
         )}
       </div>
 
@@ -43,13 +48,19 @@ const TeamOverview: React.FC<TeamOverviewProps> = ({ team, handleAddNewTeamMembe
           value={newMemberName}
           onChange={(e) => setNewMemberName(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') onAddMember(); }}
-          className="p-2.5 border border-slate-300 rounded-lg flex-1 focus:ring-2 focus:ring-sky-300 shadow-sm transition-all text-sm"
+          disabled={isActionLoading} 
+          className="p-2.5 border border-slate-300 rounded-lg flex-1 focus:ring-2 focus:ring-sky-300 shadow-sm transition-all text-sm disabled:bg-slate-100 disabled:cursor-not-allowed"
         />
         <button
           onClick={onAddMember}
-          className="px-4 py-2.5 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 shadow-md transition-all"
+          disabled={isAddDisabled} 
+          className="px-4 py-2.5 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 shadow-md transition-all disabled:bg-slate-400 disabled:shadow-none relative flex items-center justify-center"
         >
-          Add
+          {isActionLoading && !newMemberName.trim() ? (
+            <Loader size={20} />
+          ) : (
+            'Add'
+          )}
         </button>
       </div>
     </div>
